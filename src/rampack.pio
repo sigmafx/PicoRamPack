@@ -1,0 +1,104 @@
+.define public addr_bus_width 14
+.define public data_bus_width 8
+.define public gpio_mreq 22
+.define public gpio_ram_wr 26
+.define public gpio_ram_rd 27
+
+.program rampack_wr
+    pull block                      ; Retrieve memory base address
+    out x, 32                       ; Store in x
+
+.wrap_target
+    wait 0 gpio gpio_mreq           ; Wait for MREQ to go low
+    nop [31]                        ; Need to delay 320nS before checking /RAM_WR
+    nop [9]
+    jmp pin Reset                   ; /RAM_WR ?
+
+    in pins, addr_bus_width         ; Read address appended with ram buffer offset
+    in x, (32 - addr_bus_width)
+    
+    in null, (32 - (addr_bus_width + data_bus_width)) ; Read address and data padded to byte align data
+    in pins, (addr_bus_width + data_bus_width)
+
+Reset:
+    wait 1 gpio gpio_mreq           ; Wait for MREQ to go high
+
+.wrap
+
+% c-sdk {
+void rampack_wr_program_init(PIO pio, uint sm, uint offset) {
+    gpio_init(gpio_mreq);
+    gpio_set_dir(gpio_mreq, GPIO_IN);
+    gpio_init(gpio_ram_wr);
+    gpio_set_dir(gpio_ram_wr, GPIO_IN);
+
+    for(uint pinAddr = 0; pinAddr < 14; pinAddr++) pio_gpio_init(pio, pinAddr);
+    for(uint pinData = 14; pinData < 22; pinData++) pio_gpio_init(pio, pinData);
+
+    pio_sm_set_consecutive_pindirs(pio, sm, 0, 14, GPIO_IN);
+    pio_sm_set_consecutive_pindirs(pio, sm, 14, 8, GPIO_IN);
+
+    pio_sm_config c = rampack_wr_program_get_default_config(offset);
+    sm_config_set_in_pins(&c, 0);
+    sm_config_set_in_shift(&c, true, true, 32);
+    sm_config_set_jmp_pin(&c, gpio_ram_wr);
+    pio_sm_init(pio, sm, offset, &c);
+}
+%}
+
+.program rampack_rd
+    pull block
+    out x, 32                       ; Retrieve memory base address
+
+    mov osr, null
+    out pins, data_bus_width
+    out pindirs, data_bus_width
+
+.wrap_target
+    wait 0 gpio gpio_mreq           ; Wait for MREQ to go low
+    nop [4]                         ; Delay before testing /RAM_RD
+    jmp pin Reset                   ; /RAM_RD ?
+
+    in pins, addr_bus_width         ; Read address appended with ram buffer offset
+    in x, (32 - addr_bus_width)
+
+    pull block                      ; Retrieve data
+    out pins, data_bus_width        ; Output
+    mov osr, !null                  ; Set data pins as output, 1 = output
+    out pindirs, data_bus_width
+
+Reset:
+    mov osr, null
+    wait 1 gpio gpio_mreq           ; Wait for MREQ to go high
+    mov pins, null                  ; Set pins low to avoid charge leakage keeping pins high after pindir change????
+    out pindirs, data_bus_width
+.wrap
+
+% c-sdk {
+void rampack_rd_program_init(PIO pio, uint sm, uint offset) {
+    gpio_init(gpio_mreq);
+    gpio_set_dir(gpio_mreq, GPIO_IN);
+    gpio_init(gpio_ram_rd);
+    gpio_set_dir(gpio_ram_rd, GPIO_IN);
+    gpio_init(28);
+    gpio_set_dir(28, GPIO_OUT);
+
+    for(uint pinAddr = 0; pinAddr < 14; pinAddr++) pio_gpio_init(pio, pinAddr);
+    for(uint pinData = 14; pinData < 22; pinData++) pio_gpio_init(pio, pinData);
+    pio_gpio_init(pio, 28);
+
+    pio_sm_set_consecutive_pindirs(pio, sm, 0, 14, GPIO_IN);
+    pio_sm_set_consecutive_pindirs(pio, sm, 14, 8, GPIO_IN);
+    pio_sm_set_consecutive_pindirs(pio, sm, 28, 1, GPIO_OUT);
+
+    pio_sm_config c = rampack_rd_program_get_default_config(offset);
+    sm_config_set_in_pins(&c, 0);
+    sm_config_set_in_shift(&c, true, true, 32);
+    sm_config_set_out_pins(&c, 14, 8);
+    sm_config_set_out_shift(&c, true, false, 8);
+    sm_config_set_jmp_pin(&c, gpio_ram_rd);
+    sm_config_set_set_pins(&c, 28, 1);
+
+    pio_sm_init(pio, sm, offset, &c);
+}
+%}
