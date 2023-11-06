@@ -3,6 +3,7 @@
 .define public gpio_mreq 22
 .define public gpio_ram_wr 26
 .define public gpio_ram_rd 27
+.define public gpio_btn 28
 
 .program rampack_wr
     pull block                      ; Retrieve memory base address
@@ -80,16 +81,12 @@ void rampack_rd_program_init(PIO pio, uint sm, uint offset) {
     gpio_set_dir(gpio_mreq, GPIO_IN);
     gpio_init(gpio_ram_rd);
     gpio_set_dir(gpio_ram_rd, GPIO_IN);
-    gpio_init(28);
-    gpio_set_dir(28, GPIO_OUT);
 
     for(uint pinAddr = 0; pinAddr < 14; pinAddr++) pio_gpio_init(pio, pinAddr);
     for(uint pinData = 14; pinData < 22; pinData++) pio_gpio_init(pio, pinData);
-    pio_gpio_init(pio, 28);
 
     pio_sm_set_consecutive_pindirs(pio, sm, 0, 14, GPIO_IN);
     pio_sm_set_consecutive_pindirs(pio, sm, 14, 8, GPIO_IN);
-    pio_sm_set_consecutive_pindirs(pio, sm, 28, 1, GPIO_OUT);
 
     pio_sm_config c = rampack_rd_program_get_default_config(offset);
     sm_config_set_in_pins(&c, 0);
@@ -97,7 +94,6 @@ void rampack_rd_program_init(PIO pio, uint sm, uint offset) {
     sm_config_set_out_pins(&c, 14, 8);
     sm_config_set_out_shift(&c, true, false, 8);
     sm_config_set_jmp_pin(&c, gpio_ram_rd);
-    sm_config_set_set_pins(&c, 28, 1);
 
     pio_sm_init(pio, sm, offset, &c);
 }
