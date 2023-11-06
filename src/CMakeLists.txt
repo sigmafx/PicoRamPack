@@ -1,5 +1,6 @@
 add_executable(rampack
     main.cpp
+    button.cpp
     )
 
 # by default the header is generated into the build dir
