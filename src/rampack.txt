@@ -1,0 +1,65 @@
+General Info...
+ZX81 Clock at 3.2MHz - 312.5nS
+PICO Clock at 125MHz - 8nS
+
+Logic for 7400...
+For RAM area
+OUT = A14 NAND !WR
+WR  A14 !WR OUT
+0   0   1   1
+1   0   0   1
+0   1   1   0 *
+1   1   0   1
+
+OUT = A14 NAND !RD
+RD  A14 !RD OUT
+0   0   1   1
+1   0   0   1
+0   1   1   0 *
+1   1   0   1
+
+For ROM area
+OUT = A14 OR RD
+RD  A14 OUT
+0   0   0 *
+1   0   1
+0   1   1
+1   1   1
+
+Wiring Diagram...
+         ------
+A0     o| PICO |o 
+A1     o|      |o Connect to 5V for standalone , otherwise leave disconnected for USB power
+       o|      |o 
+A2     o|      |o 
+A3     o|      |o 
+A4     o|      |o 
+A5     o|      |o Button --| Connect normally open button to ground
+       o|      |o GND    --|
+A6     o|      |o RAM_RD
+A7     o|      |o RAM_WR
+A8     o|      |o RUN    --| Connect normally open button to ground
+A9     o|      |o MREQ     |
+       o|      |o GND    --|
+A10    o|      |o D7
+A11    o|      |o D6
+A12    o|      |o D5
+A13    o|      |o D4
+       o|      |o 
+D0     o|      |o D3
+D1     o|      |o D2
+         ------
+
+         ------
+/WR    o| 7400 |o     5V
+/WR    o|      |o     /RD
+|--    o|      |o     /RD
+|--    o|      |o     --|
+A14    o|      |o     --|
+RAM_RD o|      |o     A14
+GND    o|      |o     RAM_WR
+         ------
+
+RAM_CS --- 5V
+
+10nF cap between 5V and GND close to 7400.
